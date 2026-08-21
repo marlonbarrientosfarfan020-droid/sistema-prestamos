@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
 import bcrypt from "bcryptjs";
+import type { Role } from "@/types";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -19,31 +21,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const adminEnvEmail = (process.env.ADMIN_EMAIL || "admin@prestamos.pe").toLowerCase();
     const adminEnvPassword = process.env.ADMIN_PASSWORD || "CambiarEstaClaveSegura123!";
 
-    // Validación contra variables de entorno o contra base de datos
+    // Buscar usuario en base de datos
     let isValid = false;
-    let userName = "Administrador";
+    let userId = "env_admin";
+    let userName = "Administrador Principal";
+    let userRole: Role = cleanEmail === adminEnvEmail ? "SUPER_ADMIN" : "ADMIN";
+    let userActivo = true;
 
     try {
       const adminUser = await prisma.adminUser.findUnique({
         where: { email: cleanEmail },
       });
 
-      if (adminUser && adminUser.activo) {
+      if (adminUser) {
+        userActivo = adminUser.activo;
+        userId = adminUser.id;
+        userName = adminUser.nombre;
+        userRole = (adminUser.role as Role) || (cleanEmail === adminEnvEmail ? "SUPER_ADMIN" : "ADMIN");
+
+        // 🚨 VERIFICAR SI LA CUENTA ESTÁ SUSPENDIDA / INACTIVA
+        if (!userActivo) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Tu cuenta se encuentra suspendida o inactiva. Contacta al Administrador Principal.",
+            },
+            { status: 403 }
+          );
+        }
+
         if (adminUser.password_hash.startsWith("$2a$") || adminUser.password_hash.startsWith("$2b$")) {
           isValid = await bcrypt.compare(password, adminUser.password_hash);
         } else {
           isValid = adminUser.password_hash === password || password === adminEnvPassword;
         }
-        if (isValid) {
-          userName = adminUser.nombre;
-        }
       } else if (cleanEmail === adminEnvEmail && password === adminEnvPassword) {
         isValid = true;
+        userRole = "SUPER_ADMIN";
       }
     } catch (dbErr) {
       console.warn("[Auth API] DB lookup skipped or failed:", dbErr);
       if (cleanEmail === adminEnvEmail && password === adminEnvPassword) {
         isValid = true;
+        userRole = "SUPER_ADMIN";
       }
     }
 
@@ -57,18 +77,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Payload seguro para la sesión
+    const sessionPayload = JSON.stringify({
+      id: userId,
+      email: cleanEmail,
+      nombre: userName,
+      role: userRole,
+    });
+
     // Configurar respuesta exitosa
     const response = NextResponse.json({
       success: true,
       message: "Autenticación exitosa. Redirigiendo...",
       user: {
+        id: userId,
         email: cleanEmail,
         nombre: userName,
+        role: userRole,
       },
     });
 
-    // Establecer cookie básica de sesión administrativa
-    response.cookies.set("admin_session", "authenticated", {
+    // Establecer cookie enriquecida de sesión administrativa
+    response.cookies.set("admin_session", sessionPayload, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

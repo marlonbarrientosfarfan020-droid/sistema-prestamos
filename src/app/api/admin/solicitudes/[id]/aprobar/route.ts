@@ -4,12 +4,22 @@ import { aprobacionSchema } from "@/lib/validations/solicitud";
 import { generarCronograma } from "@/lib/finance/cronograma";
 import { parseISODatePeru } from "@/lib/utils/dates";
 
+export const dynamic = "force-dynamic";
+
 // POST /api/admin/solicitudes/[id]/aprobar
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
+    const adminSession = request.cookies.get("admin_session")?.value;
+    if (!adminSession) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado. Sesión requerida." },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const body = await request.json();
 

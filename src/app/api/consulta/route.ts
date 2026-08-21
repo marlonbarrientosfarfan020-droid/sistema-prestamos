@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { dniSchema } from "@/lib/validations/solicitud";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 const consultaDNISchema = z.object({ dni: dniSchema });
 
 export async function GET(request: NextRequest): Promise<NextResponse> {

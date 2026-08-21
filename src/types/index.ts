@@ -4,6 +4,7 @@
 
 // ─── Enums (reflejan schema Prisma) ──────────────────────────────────────────
 
+export type Role = 'SUPER_ADMIN' | 'ADMIN';
 export type TipoOcupacion = 'PLANILLA' | 'NEGOCIO_PROPIO' | 'HONORARIOS' | 'INFORMAL';
 export type MetodoDesembolso = 'EFECTIVO' | 'YAPE' | 'PLIN' | 'BCP' | 'BBVA' | 'INTERBANK' | 'BANCO_NACION' | 'OTRO_CCI';
 export type PeriodicidadPago = 'DIARIO' | 'SEMANAL' | 'QUINCENAL' | 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'PAGO_UNICO';
@@ -14,6 +15,25 @@ export type TipoTasa = 'PORCENTAJE_MENSUAL' | 'PORCENTAJE_TOTAL' | 'MONTO_FIJO_G
 export type ModalidadPago = 'CUOTA_FIJA_AMORTIZABLE' | 'SOLO_INTERES_CAPITAL_FINAL';
 export type ScoringRiesgo = 'BAJO' | 'MEDIO' | 'ALTO';
 export type AntiguedadLaboral = 'MENOS_3_MESES' | 'TRES_A_SEIS_MESES' | 'SEIS_A_UN_ANIO' | 'UNO_A_TRES_ANIOS' | 'MAS_TRES_ANIOS';
+
+// ─── Tipos de Administración y Seguridad ──────────────────────────────────────
+
+export interface AdminUserItem {
+  id: string;
+  email: string;
+  nombre: string;
+  role: Role;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminUserSession {
+  id: string;
+  email: string;
+  nombre: string;
+  role: Role;
+}
 
 // ─── Motor de Amortización ────────────────────────────────────────────────────
 

@@ -69,23 +69,26 @@ async function seedAdmin() {
   console.log('   ✔ Hash generado correctamente.\n');
 
   // 3. Upsert idempotente en la tabla admin_users
-  console.log('📝 Ejecutando upsert en tabla admin_users...');
+  console.log('📝 Ejecutando upsert en tabla admin_users con rol SUPER_ADMIN...');
   const admin = await prisma.adminUser.upsert({
     where: { email: ADMIN_EMAIL },
     create: {
       email: ADMIN_EMAIL,
-      nombre: 'Administrador Principal',
+      nombre: 'Administrador Principal (SUPER_ADMIN)',
       password_hash: passwordHash,
+      role: 'SUPER_ADMIN',
       activo: true,
     },
     update: {
       password_hash: passwordHash,
+      role: 'SUPER_ADMIN',
       activo: true,
     },
     select: {
       id: true,
       email: true,
       nombre: true,
+      role: true,
       activo: true,
       createdAt: true,
       updatedAt: true,
@@ -99,6 +102,7 @@ async function seedAdmin() {
   console.log(`║  ID      : ${admin.id.padEnd(38)} ║`);
   console.log(`║  Nombre  : ${admin.nombre.padEnd(38)} ║`);
   console.log(`║  Correo  : ${admin.email.padEnd(38)} ║`);
+  console.log(`║  Rol     : ${String(admin.role).padEnd(38)} ║`);
   console.log(`║  Activo  : ${String(admin.activo).padEnd(38)} ║`);
   console.log(`║  Creado  : ${admin.createdAt.toISOString().slice(0, 19).padEnd(38)} ║`);
   console.log(`║  Updated : ${admin.updatedAt.toISOString().slice(0, 19).padEnd(38)} ║`);

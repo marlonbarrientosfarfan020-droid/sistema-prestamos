@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/admin/perfil — Obtener información del perfil administrativo
 export async function GET(): Promise<NextResponse> {
   try {

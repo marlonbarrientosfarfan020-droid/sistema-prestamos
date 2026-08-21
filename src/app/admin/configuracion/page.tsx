@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   User,
   Mail,
@@ -12,60 +13,19 @@ import {
   AlertCircle,
   Loader2,
   Save,
-  ShieldAlert,
+  ShieldCheck,
   Percent,
-  Sliders,
-  Info,
-  Check,
-  X,
+  Users,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
-
-interface ConfiguracionFinanciera {
-  id: string;
-  tasaDiaria: number;
-  tasaSemanal: number;
-  tasaQuincenal: number;
-  tasaMensual: number;
-  tasaTrimestral?: number;
-  tasaSemestral?: number;
-  cuotasDefaultDiario: number;
-  cuotasDefaultSemanal: number;
-  cuotasDefaultQuincenal: number;
-  cuotasDefaultMensual: number;
-  cuotasDefaultTrimestral?: number;
-  cuotasDefaultSemestral?: number;
-  montoMinimo: number;
-  montoMaximo: number;
-  tasaMoraDiaria: number;
-}
+import type { Role } from "@/types";
 
 export default function ConfiguracionAdminPage() {
-  // ─── ESTADOS DE CONFIGURACIÓN FINANCIERA ───
-  const [financialConfig, setFinancialConfig] = useState<ConfiguracionFinanciera>({
-    id: "default_config",
-    tasaDiaria: 20.0,
-    tasaSemanal: 20.0,
-    tasaQuincenal: 15.0,
-    tasaMensual: 10.0,
-    tasaTrimestral: 15.0,
-    tasaSemestral: 25.0,
-    cuotasDefaultDiario: 24,
-    cuotasDefaultSemanal: 4,
-    cuotasDefaultQuincenal: 2,
-    cuotasDefaultMensual: 1,
-    cuotasDefaultTrimestral: 1,
-    cuotasDefaultSemestral: 1,
-    montoMinimo: 50.0,
-    montoMaximo: 10000.0,
-    tasaMoraDiaria: 1.5,
-  });
-  const [financialLoading, setFinancialLoading] = useState(false);
-  const [financialSuccess, setFinancialSuccess] = useState<string | null>(null);
-  const [financialError, setFinancialError] = useState<string | null>(null);
-
   // ─── ESTADOS DE PERFIL ───
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
+  const [userRole, setUserRole] = useState<Role>("ADMIN");
   const [initialLoading, setInitialLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
@@ -89,7 +49,6 @@ export default function ConfiguracionAdminPage() {
     async function loadData() {
       try {
         setInitialLoading(true);
-        // Cargar perfil
         const resProfile = await fetch("/api/admin/perfil");
         const jsonProfile = await resProfile.json();
         if (jsonProfile.success && jsonProfile.data) {
@@ -97,11 +56,10 @@ export default function ConfiguracionAdminPage() {
           setEmail(jsonProfile.data.email || "");
         }
 
-        // Cargar configuración financiera
-        const resConfig = await fetch("/api/admin/configuracion");
-        const jsonConfig = await resConfig.json();
-        if (jsonConfig.success && jsonConfig.data) {
-          setFinancialConfig(jsonConfig.data);
+        const resMe = await fetch("/api/admin/auth/me");
+        const jsonMe = await resMe.json();
+        if (jsonMe.success && jsonMe.data) {
+          setUserRole(jsonMe.data.role || "ADMIN");
         }
       } catch (err) {
         console.error("Error al cargar datos administrativos:", err);
@@ -111,45 +69,6 @@ export default function ConfiguracionAdminPage() {
     }
     loadData();
   }, []);
-
-  // ─── GUARDAR PARÁMETROS FINANCIEROS Y TASAS ───
-  const handleFinancialSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setFinancialError(null);
-    setFinancialSuccess(null);
-
-    if (financialConfig.montoMaximo < financialConfig.montoMinimo) {
-      setFinancialError("El monto máximo no puede ser menor al monto mínimo.");
-      return;
-    }
-
-    setFinancialLoading(true);
-
-    try {
-      const res = await fetch("/api/admin/configuracion", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(financialConfig),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "No se pudieron guardar las tasas financieras.");
-      }
-
-      setFinancialSuccess(data.message || "¡Tasas y parámetros financieros actualizados correctamente!");
-      setTimeout(() => setFinancialSuccess(null), 5000);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setFinancialError(err.message);
-      } else {
-        setFinancialError("Error de conexión al guardar los parámetros.");
-      }
-    } finally {
-      setFinancialLoading(false);
-    }
-  };
 
   // ─── GUARDAR PERFIL (NOMBRE & EMAIL) ───
   const handleProfileSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -188,11 +107,7 @@ export default function ConfiguracionAdminPage() {
       setProfileSuccess(data.message || "Perfil administrativo actualizado con éxito.");
       setTimeout(() => setProfileSuccess(null), 5000);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setProfileError(err.message);
-      } else {
-        setProfileError("Error de conexión al actualizar el perfil.");
-      }
+      setProfileError(err instanceof Error ? err.message : "Error de conexión al actualizar el perfil.");
     } finally {
       setProfileLoading(false);
     }
@@ -249,543 +164,141 @@ export default function ConfiguracionAdminPage() {
       setConfirmPassword("");
       setTimeout(() => setPasswordSuccess(null), 5000);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setPasswordError(err.message);
-      } else {
-        setPasswordError("Error al procesar la solicitud de cambio de clave.");
-      }
+      setPasswordError(err instanceof Error ? err.message : "Error al procesar la solicitud de cambio de clave.");
     } finally {
       setPasswordLoading(false);
     }
   };
 
-  const hasMinLength = newPassword.length >= 6;
-  const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
-
   return (
     <div className="space-y-6 sm:space-y-8 max-w-6xl mx-auto pb-12">
-      {/* ─── ENCABEZADO DE SECCIÓN ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-5">
+      {/* ─── ENCABEZADO ─── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold uppercase tracking-wider mb-2">
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Parámetros & Sistema</span>
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold uppercase tracking-wider mb-2">
+            <User className="w-3.5 h-3.5" />
+            <span>Perfil & Seguridad de Cuenta</span>
           </div>
           <h1
             className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight"
             style={{ fontFamily: "var(--font-outfit)" }}
           >
-            Configuración del Sistema y Tasas
+            Mi Cuenta Administrativa
           </h1>
           <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-            Ajusta en tiempo real los porcentajes de interés, cuotas sugeridas, límites de préstamo y gestiona tu perfil administrativo.
+            Gestiona tus datos personales de acceso, actualiza tu contraseña de seguridad y accede a los módulos del sistema.
           </p>
         </div>
 
-        {/* Badge de Estado */}
-        <div className="flex items-center gap-2 self-start sm:self-center px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 shadow-sm text-xs font-medium text-slate-700">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Sincronización en Vivo</span>
-        </div>
+        {/* Badge de Rol */}
+        {userRole === "SUPER_ADMIN" ? (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-extrabold shadow-2xs">
+            <Sparkles className="w-4 h-4 text-purple-600" />
+            <span>SUPER_ADMIN • Control Total</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>OPERADOR (ADMIN)</span>
+          </div>
+        )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-          BLOQUE 1: CONFIGURACIÓN FINANCIERA Y TASAS (FULL WIDTH CARD)
-          ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="card p-5 sm:p-7 bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-200">
-        {/* Header */}
-        <div className="flex items-start justify-between flex-wrap gap-3 pb-5 border-b border-slate-100">
-          <div className="flex items-start gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white flex-shrink-0 shadow-md shadow-emerald-500/20">
-              <Percent className="w-5 h-5" />
+      {/* ─── HUB DE ACCESOS RÁPIDOS ─── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Acceso a Tasas */}
+        <Link
+          href="/admin/tasas"
+          className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-white to-teal-500/10 border border-emerald-200 hover:border-emerald-400 hover:shadow-md transition-all group flex items-center justify-between"
+          id="link-acceso-tasas"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform">
+              <Percent className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900" style={{ fontFamily: "var(--font-outfit)" }}>
-                Tasas de Interés y Modalidades de Pago
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Define el porcentaje de ganancia total aplicado al capital y el número de cuotas sugeridas para cada frecuencia.
+              <h3 className="font-bold text-sm text-slate-900 group-hover:text-emerald-700 transition-colors">
+                Módulo de Tasas de Interés
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Configurar tasas diarias, semanales, quincenales y mensuales en vivo
               </p>
             </div>
           </div>
+          <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
+        </Link>
 
-          <span className="text-xs font-medium px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg border border-slate-200">
-            Impacta inmediatamente al simulador público
-          </span>
-        </div>
-
-        {/* Alertas */}
-        {financialSuccess && (
-          <div
-            className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200"
-            role="alert"
+        {/* Acceso a Gestión de Usuarios (SUPER_ADMIN) */}
+        {userRole === "SUPER_ADMIN" ? (
+          <Link
+            href="/admin/usuarios"
+            className="p-5 rounded-2xl bg-gradient-to-br from-purple-500/10 via-white to-indigo-500/10 border border-purple-200 hover:border-purple-400 hover:shadow-md transition-all group flex items-center justify-between"
+            id="link-acceso-usuarios"
           >
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-            <span>{financialSuccess}</span>
-          </div>
-        )}
-
-        {financialError && (
-          <div
-            className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200"
-            role="alert"
-          >
-            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-            <span>{financialError}</span>
-          </div>
-        )}
-
-        {initialLoading ? (
-          <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
-            <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
-            <span className="text-xs">Cargando parámetros financieros...</span>
-          </div>
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md shadow-purple-600/20 group-hover:scale-105 transition-transform">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 group-hover:text-purple-700 transition-colors">
+                  Gestión de Cuentas y Operadores
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Crear operadores, asignar roles y switch de bloqueo/suspensión
+                </p>
+              </div>
+            </div>
+            <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
+          </Link>
         ) : (
-          <form onSubmit={handleFinancialSubmit} className="mt-6 space-y-6">
-            {/* Grid de 4 Frecuencias */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-              {/* Modalidad 1: Diario */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-emerald-300 transition-colors space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
-                    <span>📅</span> Pago Diario
-                  </span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                    Días Hábiles
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Tasa de Interés (%)
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={financialConfig.tasaDiaria}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, tasaDiaria: parseFloat(e.target.value) || 0 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-bold text-slate-400 pointer-events-none">%</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Cuotas Sugeridas
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={financialConfig.cuotasDefaultDiario}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, cuotasDefaultDiario: parseInt(e.target.value) || 1 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-14 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-medium text-slate-400 pointer-events-none">cuotas</span>
-                  </div>
-                </div>
+          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between opacity-80">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-slate-200 text-slate-400 flex items-center justify-center">
+                <Users className="w-6 h-6" />
               </div>
-
-              {/* Modalidad 2: Semanal */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-emerald-300 transition-colors space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
-                    <span>🗓️</span> Pago Semanal
-                  </span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                    7 Días
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Tasa de Interés (%)
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={financialConfig.tasaSemanal}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, tasaSemanal: parseFloat(e.target.value) || 0 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-bold text-slate-400 pointer-events-none">%</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Cuotas Sugeridas
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={financialConfig.cuotasDefaultSemanal}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, cuotasDefaultSemanal: parseInt(e.target.value) || 1 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-14 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-medium text-slate-400 pointer-events-none">cuotas</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modalidad 3: Quincenal */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-emerald-300 transition-colors space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
-                    <span>📆</span> Pago Quincenal
-                  </span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
-                    15 Días
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Tasa de Interés (%)
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={financialConfig.tasaQuincenal}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, tasaQuincenal: parseFloat(e.target.value) || 0 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-bold text-slate-400 pointer-events-none">%</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Cuotas Sugeridas
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={financialConfig.cuotasDefaultQuincenal}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, cuotasDefaultQuincenal: parseInt(e.target.value) || 1 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-14 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-medium text-slate-400 pointer-events-none">cuotas</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modalidad 4: Mensual */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-emerald-300 transition-colors space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
-                    <span>🗒️</span> Pago Mensual
-                  </span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
-                    30 Días
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Tasa de Interés (%)
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={financialConfig.tasaMensual}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, tasaMensual: parseFloat(e.target.value) || 0 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-bold text-slate-400 pointer-events-none">%</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Cuotas Sugeridas
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={financialConfig.cuotasDefaultMensual}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, cuotasDefaultMensual: parseInt(e.target.value) || 1 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-14 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-medium text-slate-400 pointer-events-none">cuotas</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modalidad 5: Trimestral */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-emerald-300 transition-colors space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
-                    <span>🏛️</span> Pago Trimestral
-                  </span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-100 text-teal-800">
-                    Cada 3 Meses
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Tasa de Interés (%)
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={financialConfig.tasaTrimestral ?? 15.0}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, tasaTrimestral: parseFloat(e.target.value) || 0 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-bold text-slate-400 pointer-events-none">%</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Cuotas Sugeridas
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={financialConfig.cuotasDefaultTrimestral ?? 1}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, cuotasDefaultTrimestral: parseInt(e.target.value) || 1 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-14 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-medium text-slate-400 pointer-events-none">cuotas</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modalidad 6: Semestral */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-emerald-300 transition-colors space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
-                    <span>📈</span> Pago Semestral
-                  </span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">
-                    Medio Año
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Tasa de Interés (%)
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={financialConfig.tasaSemestral ?? 25.0}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, tasaSemestral: parseFloat(e.target.value) || 0 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-bold text-slate-400 pointer-events-none">%</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                    Cuotas Sugeridas
-                  </label>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={financialConfig.cuotasDefaultSemestral ?? 1}
-                      onChange={(e) =>
-                        setFinancialConfig({ ...financialConfig, cuotasDefaultSemestral: parseInt(e.target.value) || 1 })
-                      }
-                      required
-                      className="w-full h-10 pl-3 pr-14 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                    />
-                    <span className="absolute right-3 text-xs font-medium text-slate-400 pointer-events-none">cuotas</span>
-                  </div>
-                </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-700">
+                  Gestión de Operadores (Solo SUPER_ADMIN)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Acceso reservado a la cuenta principal del software
+                </p>
               </div>
             </div>
-
-            {/* Parámetros Globales: Montos y Mora */}
-            <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Monto Mínimo Solicitud (S/)
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-xs font-bold text-slate-500 pointer-events-none select-none z-10">
-                    S/
-                  </span>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={financialConfig.montoMinimo}
-                    onChange={(e) =>
-                      setFinancialConfig({ ...financialConfig, montoMinimo: parseFloat(e.target.value) || 0 })
-                    }
-                    required
-                    className="w-full h-11 pr-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition"
-                    style={{ paddingLeft: "2.75rem" }}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Monto Máximo Solicitud (S/)
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-xs font-bold text-slate-500 pointer-events-none select-none z-10">
-                    S/
-                  </span>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={financialConfig.montoMaximo}
-                    onChange={(e) =>
-                      setFinancialConfig({ ...financialConfig, montoMaximo: parseFloat(e.target.value) || 0 })
-                    }
-                    required
-                    className="w-full h-11 pr-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition"
-                    style={{ paddingLeft: "2.75rem" }}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Tasa de Mora Diaria (%)
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={financialConfig.tasaMoraDiaria}
-                    onChange={(e) =>
-                      setFinancialConfig({ ...financialConfig, tasaMoraDiaria: parseFloat(e.target.value) || 0 })
-                    }
-                    required
-                    className="w-full h-11 pl-3.5 pr-14 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition"
-                  />
-                  <span className="absolute right-3 text-xs font-bold text-slate-400 pointer-events-none">% diario</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Botón Guardar Parámetros Financieros */}
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={financialLoading}
-                id="btn-guardar-tasas"
-                className="w-full sm:w-auto min-h-[44px] h-11 px-7 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold text-sm shadow-md shadow-emerald-600/20 hover:shadow-lg active:scale-[0.99] transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {financialLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Guardando tasas...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    <span>Guardar Tasas y Parámetros</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+            <Lock className="w-4 h-4 text-slate-400" />
+          </div>
         )}
       </div>
 
-      {/* ─── GRID RESPONSIVO: PERFIL Y CONTRASEÑA ─── */}
+      {/* ─── GRID DE FORMULARIOS: PERFIL Y CONTRASEÑA ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-start">
         {/* ═══════════════════════════════════════════════════════════════════════
-            TARJETA 2: DATOS DEL ADMINISTRADOR
+            TARJETA 1: DATOS DEL PERFIL
             ═══════════════════════════════════════════════════════════════════════ */}
-        <div className="card p-5 sm:p-7 bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="card p-5 sm:p-7 bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-start gap-3.5 pb-5 border-b border-slate-100">
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-600 flex-shrink-0 shadow-sm">
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 flex-shrink-0 shadow-2xs">
               <User className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900" style={{ fontFamily: "var(--font-outfit)" }}>
-                Perfil del Administrador
+              <h2 className="text-lg font-bold text-slate-900 font-outfit">
+                Datos del Perfil
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Datos identificatorios del operador de la cuenta.
+                Nombre y correo identificatorio de tu cuenta.
               </p>
             </div>
           </div>
 
           {profileSuccess && (
-            <div
-              className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200"
-              role="alert"
-            >
+            <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
               <span>{profileSuccess}</span>
             </div>
           )}
 
           {profileError && (
-            <div
-              className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200"
-              role="alert"
-            >
+            <div className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
               <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
               <span>{profileError}</span>
             </div>
@@ -794,78 +307,64 @@ export default function ConfiguracionAdminPage() {
           {initialLoading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
               <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
-              <span className="text-xs">Cargando datos del perfil...</span>
+              <span className="text-xs">Cargando perfil...</span>
             </div>
           ) : (
             <form onSubmit={handleProfileSubmit} className="mt-5 space-y-4">
               <div className="space-y-1.5">
-                <label
-                  htmlFor="admin-nombre"
-                  className="block text-xs font-bold uppercase tracking-wider text-slate-700"
-                >
+                <label htmlFor="perfil-nombre" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
                   Nombre Completo
                 </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-600 transition-colors">
+                <div className="relative flex items-center">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <User className="w-4 h-4" />
                   </div>
                   <input
-                    id="admin-nombre"
+                    id="perfil-nombre"
                     type="text"
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
-                    disabled={profileLoading}
-                    placeholder="Ej. Juan Pérez Martínez"
                     required
-                    className="w-full min-h-[44px] h-11 pl-10 pr-3.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm transition-all duration-150 outline-none hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 disabled:opacity-60"
+                    className="w-full h-11 pl-10 pr-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label
-                  htmlFor="admin-email-field"
-                  className="block text-xs font-bold uppercase tracking-wider text-slate-700"
-                >
+                <label htmlFor="perfil-email" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
                   Correo Electrónico
                 </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-600 transition-colors">
+                <div className="relative flex items-center">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Mail className="w-4 h-4" />
                   </div>
                   <input
-                    id="admin-email-field"
+                    id="perfil-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={profileLoading}
-                    placeholder="admin@prestamos.pe"
                     required
-                    className="w-full min-h-[44px] h-11 pl-10 pr-3.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm transition-all duration-150 outline-none hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 disabled:opacity-60"
+                    className="w-full h-11 pl-10 pr-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
-                  <Info className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                  <span>Este correo es el identificador principal para iniciar sesión.</span>
-                </p>
               </div>
 
-              <div className="pt-3">
+              <div className="pt-2">
                 <button
                   type="submit"
                   disabled={profileLoading}
+                  className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                   id="btn-guardar-perfil"
-                  className="w-full sm:w-auto min-h-[44px] h-11 px-6 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold text-sm shadow-sm hover:shadow-md active:scale-[0.99] transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {profileLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Guardando cambios...</span>
+                      <span>Guardando...</span>
                     </>
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      <span>Guardar Cambios</span>
+                      <span>Actualizar Perfil</span>
                     </>
                   )}
                 </button>
@@ -875,38 +374,32 @@ export default function ConfiguracionAdminPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════════
-            TARJETA 3: SEGURIDAD Y CAMBIO DE CONTRASEÑA
+            TARJETA 2: CAMBIO DE CONTRASEÑA
             ═══════════════════════════════════════════════════════════════════════ */}
-        <div className="card p-5 sm:p-7 bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="card p-5 sm:p-7 bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-start gap-3.5 pb-5 border-b border-slate-100">
-            <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-600 flex-shrink-0 shadow-sm">
+            <div className="w-11 h-11 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 flex-shrink-0 shadow-2xs">
               <KeyRound className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900" style={{ fontFamily: "var(--font-outfit)" }}>
-                Seguridad y Contraseña
+              <h2 className="text-lg font-bold text-slate-900 font-outfit">
+                Seguridad de Contraseña
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Actualiza tu clave para reforzar la protección del sistema.
+                Actualiza tu clave de acceso periódico.
               </p>
             </div>
           </div>
 
           {passwordSuccess && (
-            <div
-              className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200"
-              role="alert"
-            >
+            <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
               <span>{passwordSuccess}</span>
             </div>
           )}
 
           {passwordError && (
-            <div
-              className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200"
-              role="alert"
-            >
+            <div className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
               <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
               <span>{passwordError}</span>
             </div>
@@ -914,164 +407,90 @@ export default function ConfiguracionAdminPage() {
 
           <form onSubmit={handlePasswordSubmit} className="mt-5 space-y-4">
             <div className="space-y-1.5">
-              <label
-                htmlFor="current-password"
-                className="block text-xs font-bold uppercase tracking-wider text-slate-700"
-              >
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
                 Contraseña Actual
               </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-600 transition-colors">
-                  <Lock className="w-4 h-4" />
-                </div>
+              <div className="relative flex items-center">
                 <input
-                  id="current-password"
                   type={showCurrentPassword ? "text" : "password"}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  disabled={passwordLoading}
-                  placeholder="Tu contraseña actual"
+                  placeholder="••••••••••••"
                   required
-                  autoComplete="current-password"
-                  className="w-full min-h-[44px] h-11 pl-10 pr-11 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm transition-all duration-150 outline-none hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 disabled:opacity-60"
+                  className="w-full h-11 pl-3.5 pr-11 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  tabIndex={-1}
-                  aria-label={showCurrentPassword ? "Ocultar contraseña" : "Ver contraseña"}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 min-h-[44px] min-w-[44px] justify-center focus:outline-none transition-colors"
+                  className="absolute right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600"
                 >
-                  {showCurrentPassword ? <EyeOff className="w-4 h-4 text-emerald-600" /> : <Eye className="w-4 h-4" />}
+                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label
-                htmlFor="new-password"
-                className="block text-xs font-bold uppercase tracking-wider text-slate-700"
-              >
-                Nueva Contraseña
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                Nueva Contraseña (mín. 6 caracteres)
               </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-600 transition-colors">
-                  <Lock className="w-4 h-4" />
-                </div>
+              <div className="relative flex items-center">
                 <input
-                  id="new-password"
                   type={showNewPassword ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  disabled={passwordLoading}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="••••••••••••"
                   required
-                  autoComplete="new-password"
-                  className="w-full min-h-[44px] h-11 pl-10 pr-11 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm transition-all duration-150 outline-none hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 disabled:opacity-60"
+                  className="w-full h-11 pl-3.5 pr-11 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  tabIndex={-1}
-                  aria-label={showNewPassword ? "Ocultar contraseña" : "Ver contraseña"}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 min-h-[44px] min-w-[44px] justify-center focus:outline-none transition-colors"
+                  className="absolute right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600"
                 >
-                  {showNewPassword ? <EyeOff className="w-4 h-4 text-emerald-600" /> : <Eye className="w-4 h-4" />}
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-
-              {newPassword.length > 0 && (
-                <div className="flex items-center gap-1.5 text-[11px] pt-0.5">
-                  {hasMinLength ? (
-                    <span className="text-emerald-600 flex items-center gap-1 font-medium">
-                      <Check className="w-3 h-3" /> Mínimo 6 caracteres cumplido
-                    </span>
-                  ) : (
-                    <span className="text-amber-600 flex items-center gap-1">
-                      <X className="w-3 h-3" /> Faltan {6 - newPassword.length} caracteres
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
 
             <div className="space-y-1.5">
-              <label
-                htmlFor="confirm-password"
-                className="block text-xs font-bold uppercase tracking-wider text-slate-700"
-              >
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
                 Confirmar Nueva Contraseña
               </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-600 transition-colors">
-                  <Lock className="w-4 h-4" />
-                </div>
+              <div className="relative flex items-center">
                 <input
-                  id="confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={passwordLoading}
-                  placeholder="Repite la nueva contraseña"
+                  placeholder="••••••••••••"
                   required
-                  autoComplete="new-password"
-                  className={`w-full min-h-[44px] h-11 pl-10 pr-11 bg-slate-50/50 border rounded-xl text-slate-900 placeholder-slate-400 text-sm transition-all duration-150 outline-none hover:border-slate-300 focus:bg-white focus:ring-4 disabled:opacity-60 ${
-                    confirmPassword.length > 0
-                      ? passwordsMatch
-                        ? "border-emerald-400 focus:border-emerald-500 focus:ring-emerald-500/10"
-                        : "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10"
-                      : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/10"
-                  }`}
+                  className="w-full h-11 pl-3.5 pr-11 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  tabIndex={-1}
-                  aria-label={showConfirmPassword ? "Ocultar contraseña" : "Ver contraseña"}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 min-h-[44px] min-w-[44px] justify-center focus:outline-none transition-colors"
+                  className="absolute right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600"
                 >
-                  {showConfirmPassword ? <EyeOff className="w-4 h-4 text-emerald-600" /> : <Eye className="w-4 h-4" />}
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-
-              {confirmPassword.length > 0 && (
-                <div className="flex items-center gap-1.5 text-[11px] pt-0.5">
-                  {passwordsMatch ? (
-                    <span className="text-emerald-600 flex items-center gap-1 font-medium">
-                      <Check className="w-3 h-3" /> Las contraseñas coinciden
-                    </span>
-                  ) : (
-                    <span className="text-rose-600 flex items-center gap-1 font-medium">
-                      <X className="w-3 h-3" /> Las contraseñas no coinciden
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-start gap-2">
-              <ShieldAlert className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
-              <span>
-                Para mayor seguridad, combina letras mayúsculas, minúsculas, números y caracteres especiales.
-              </span>
-            </div>
-
-            <div className="pt-3">
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={passwordLoading}
-                id="btn-actualizar-password"
-                className="w-full sm:w-auto min-h-[44px] h-11 px-6 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-semibold text-sm shadow-sm hover:shadow-md active:scale-[0.99] transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full h-11 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-md shadow-purple-600/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                id="btn-cambiar-password"
               >
                 {passwordLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Actualizando clave...</span>
+                    <span>Actualizando...</span>
                   </>
                 ) : (
                   <>
-                    <KeyRound className="w-4 h-4" />
-                    <span>Actualizar Contraseña</span>
+                    <Lock className="w-4 h-4" />
+                    <span>Cambiar Contraseña</span>
                   </>
                 )}
               </button>

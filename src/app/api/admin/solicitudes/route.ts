@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/admin/solicitudes — Lista de solicitudes para la bandeja del admin
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {

@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createClient } from "@supabase/supabase-js";
+import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import fs from "fs/promises";
-import { v4 as uuidv4 } from "uuid";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_MIMES = ["image/jpeg", "image/png", "application/pdf"];
+
+// Inicializar cliente de Supabase Storage
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 // POST /api/vouchers — Subida de comprobante de pago por el cliente
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -58,24 +67,59 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "Esta cuota ya está marcada como pagada" }, { status: 409 });
     }
 
-    // Guardar archivo
     const dni = cuota.prestamo.solicitud.cliente.dni;
-    const uploadBase = process.env.UPLOAD_DIR ?? "public/uploads";
-    const dir = path.join(process.cwd(), uploadBase, dni, "vouchers");
-    await fs.mkdir(dir, { recursive: true });
-
     const ext = voucherFile.name.split(".").pop() ?? "bin";
-    const filename = `voucher_${cuotaId}_${uuidv4()}.${ext}`;
-    const filepath = path.join(dir, filename);
     const buffer = Buffer.from(await voucherFile.arrayBuffer());
-    await fs.writeFile(filepath, buffer);
-    const relativePath = `/uploads/${dni}/vouchers/${filename}`;
+    let fileUrl: string;
+
+    // ─── Subir a Supabase Storage (Recomendado para Vercel) ────────────────────
+    if (supabase) {
+      const fileName = `${dni}/vouchers/${uuidv4()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("documentos")
+        .upload(fileName, buffer, {
+          contentType: voucherFile.type || "application/octet-stream",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("[Supabase Storage Voucher Upload Error]:", uploadError);
+        return NextResponse.json(
+          { success: false, error: `Error al subir el voucher a Supabase: ${uploadError.message}` },
+          { status: 500 }
+        );
+      }
+
+      const { data: publicData } = supabase.storage
+        .from("documentos")
+        .getPublicUrl(fileName);
+
+      fileUrl = publicData.publicUrl;
+    } else {
+      // Fallback a almacenamiento local en caso no esté configurado Supabase
+      try {
+        const uploadBase = process.env.UPLOAD_DIR ?? "public/uploads";
+        const dir = path.join(process.cwd(), uploadBase, dni, "vouchers");
+        await fs.mkdir(dir, { recursive: true });
+
+        const filename = `voucher_${cuotaId}_${uuidv4()}.${ext}`;
+        const filepath = path.join(dir, filename);
+        await fs.writeFile(filepath, buffer);
+        fileUrl = `/uploads/${dni}/vouchers/${filename}`;
+      } catch (localErr) {
+        console.error("[Local Storage Error]:", localErr);
+        return NextResponse.json(
+          { success: false, error: "Error al guardar el archivo en el servidor." },
+          { status: 500 }
+        );
+      }
+    }
 
     // Guardar en base de datos
     const voucher = await prisma.voucherPago.create({
       data: {
         cuotaId,
-        url: relativePath,
+        url: fileUrl,
         nombre_archivo: voucherFile.name,
         mime_type: voucherFile.type,
         tamano_bytes: voucherFile.size,
@@ -88,6 +132,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       success: true,
       data: {
         voucherId: voucher.id,
+        url: fileUrl,
         mensaje: "Comprobante enviado exitosamente. Será revisado en breve.",
       },
     });

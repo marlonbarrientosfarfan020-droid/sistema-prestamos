@@ -92,6 +92,11 @@ enum AntiguedadLaboral {
   MAS_TRES_ANIOS
 }
 
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MODELO: AdminUser
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,6 +106,7 @@ model AdminUser {
   email              String    @unique
   password_hash      String
   nombre             String
+  role               Role      @default(ADMIN)
   activo             Boolean   @default(true)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

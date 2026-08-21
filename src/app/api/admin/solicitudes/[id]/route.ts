@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/admin/solicitudes/[id] — Expediente completo
 export async function GET(
   _request: NextRequest,

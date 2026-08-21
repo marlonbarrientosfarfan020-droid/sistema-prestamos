@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+export const dynamic = "force-dynamic";
+
 // POST /api/admin/perfil/cambiar-password — Cambiar contraseña del administrador
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const adminSession = request.cookies.get("admin_session")?.value;
+    if (!adminSession) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado. Sesión requerida." },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { currentPassword, newPassword, confirmPassword } = body;
 
