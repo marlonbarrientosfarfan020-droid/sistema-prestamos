@@ -999,7 +999,18 @@ export default function HomePage() {
         </div>
 
         <div className="max-w-7xl mx-auto pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-          <p>© {new Date().getFullYear()} PréstamosPE. Todos los derechos reservados.</p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+            <p>© {new Date().getFullYear()} PréstamosPE. Todos los derechos reservados.</p>
+            <span className="hidden sm:inline text-slate-800">•</span>
+            <Link
+              href="/admin/login"
+              className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors font-medium select-none"
+              title="Acceso administrativo"
+              id="footer-acceso-interno"
+            >
+              Acceso Interno
+            </Link>
+          </div>
           <p className="text-slate-500">Hecho con ❤️ para emprendedores y familias en Perú</p>
         </div>
       </footer>
