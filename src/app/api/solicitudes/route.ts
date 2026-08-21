@@ -33,7 +33,7 @@ const ALLOWED_MIMES = ["image/jpeg", "image/png", "application/pdf"];
 // Asegurar que el directorio de uploads existe
 async function ensureUploadDir(dni: string): Promise<string> {
   const uploadBase = process.env.UPLOAD_DIR ?? "public/uploads";
-  const dir = path.join(process.cwd(), uploadBase, dni);
+  const dir = path.join(/*turbopackIgnore: true*/ process.cwd(), uploadBase, dni);
   await fs.mkdir(dir, { recursive: true });
   return dir;
 }
@@ -42,7 +42,7 @@ async function ensureUploadDir(dni: string): Promise<string> {
 async function saveFile(file: File, dir: string): Promise<{ relativePath: string; filename: string }> {
   const ext = file.name.split(".").pop() ?? "bin";
   const filename = `${uuidv4()}.${ext}`;
-  const filepath = path.join(dir, filename);
+  const filepath = path.join(/*turbopackIgnore: true*/ dir, filename);
   const buffer = Buffer.from(await file.arrayBuffer());
   await fs.writeFile(filepath, buffer);
   // Retornar path relativo para servir desde /uploads
