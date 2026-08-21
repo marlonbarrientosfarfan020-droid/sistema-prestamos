@@ -1,0 +1,339 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TipoOcupacion {
+  PLANILLA
+  NEGOCIO_PROPIO
+  HONORARIOS
+  INFORMAL
+}
+
+enum MetodoDesembolso {
+  EFECTIVO
+  YAPE
+  PLIN
+  BCP
+  BBVA
+  INTERBANK
+  BANCO_NACION
+  OTRO_CCI
+}
+
+enum PeriodicidadPago {
+  DIARIO
+  SEMANAL
+  QUINCENAL
+  MENSUAL
+  TRIMESTRAL
+  SEMESTRAL
+  PAGO_UNICO
+}
+
+enum EstadoSolicitud {
+  PENDIENTE
+  EN_EVALUACION
+  APROBADO
+  RECHAZADO
+  FINALIZADO
+}
+
+enum EstadoCuota {
+  PENDIENTE
+  PAGADO
+  VENCIDO
+}
+
+enum TipoDocumentoKYC {
+  FOTO_ROSTRO
+  DNI_ANVERSO
+  DNI_REVERSO
+  RECIBO_SERVICIO
+  SELFIE_CON_DNI
+  SUSTENTO_LABORAL
+  VOUCHER_PAGO
+}
+
+enum TipoTasa {
+  PORCENTAJE_MENSUAL
+  PORCENTAJE_TOTAL
+  MONTO_FIJO_GANANCIA
+}
+
+enum ModalidadPago {
+  CUOTA_FIJA_AMORTIZABLE
+  SOLO_INTERES_CAPITAL_FINAL
+}
+
+enum ScoringRiesgo {
+  BAJO
+  MEDIO
+  ALTO
+}
+
+enum AntiguedadLaboral {
+  MENOS_3_MESES
+  TRES_A_SEIS_MESES
+  SEIS_A_UN_ANIO
+  UNO_A_TRES_ANIOS
+  MAS_TRES_ANIOS
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: AdminUser
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AdminUser {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  password_hash      String
+  nombre             String
+  activo             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  solicitudesRevisadas SolicitudPrestamo[] @relation("RevisadoPor")
+
+  @@map("admin_users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: Cliente
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Cliente {
+  id                  String    @id @default(cuid())
+  dni                 String    @unique
+  nombres             String
+  apellidos           String
+  celular             String
+  email               String?
+  fecha_nacimiento    DateTime?
+  direccion           String
+  departamento        String
+  provincia           String
+  distrito            String
+  foto_rostro_url     String?   // URL de la foto biométrica principal
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  datosLaborales    DatosLaborales?
+  documentosKYC     DocumentoKYC[]
+  referencias       Referencia[]
+  solicitudes       SolicitudPrestamo[]
+
+  @@map("clientes")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: DatosLaborales
+// ─────────────────────────────────────────────────────────────────────────────
+
+model DatosLaborales {
+  id                          String            @id @default(cuid())
+  clienteId                   String            @unique
+  tipo_ocupacion              TipoOcupacion
+  nombre_empresa_negocio      String
+  ingreso_mensual_estimado    Decimal           @db.Decimal(12, 2)
+  antiguedad_laboral          AntiguedadLaboral
+  direccion_laboral           String
+  createdAt                   DateTime          @default(now())
+  updatedAt                   DateTime          @updatedAt
+
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@map("datos_laborales")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: DocumentoKYC
+// ─────────────────────────────────────────────────────────────────────────────
+
+model DocumentoKYC {
+  id               String           @id @default(cuid())
+  clienteId        String
+  solicitudId      String?
+  tipo             TipoDocumentoKYC
+  url              String           // Ruta relativa o URL del archivo
+  nombre_archivo   String           // Nombre original del archivo
+  mime_type        String           // image/jpeg | image/png | application/pdf
+  tamano_bytes     Int
+  createdAt        DateTime         @default(now())
+
+  cliente   Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  solicitud SolicitudPrestamo? @relation(fields: [solicitudId], references: [id])
+
+  @@map("documentos_kyc")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: Referencia Personal
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Referencia {
+  id          String  @id @default(cuid())
+  clienteId   String
+  numero      Int     // 1 o 2
+  nombre_completo String
+  parentesco  String
+  celular     String
+
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@map("referencias")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: SolicitudPrestamo
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SolicitudPrestamo {
+  id                      String          @id @default(cuid())
+  clienteId               String
+  adminId                 String?         // Admin que revisó/evaluó
+  estado                  EstadoSolicitud @default(PENDIENTE)
+  scoring_riesgo          ScoringRiesgo?
+  notas_evaluacion        String?
+
+  // Datos de desembolso
+  metodo_desembolso       MetodoDesembolso
+  numero_cuenta_celular   String
+
+  // Solicitud financiera del cliente
+  monto_solicitado        Decimal         @db.Decimal(12, 2)
+  periodicidad_solicitada PeriodicidadPago
+
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  cliente       Cliente        @relation(fields: [clienteId], references: [id])
+  admin         AdminUser?     @relation("RevisadoPor", fields: [adminId], references: [id])
+  documentosKYC DocumentoKYC[]
+  prestamo      Prestamo?
+
+  @@map("solicitudes_prestamo")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: Prestamo (generado al aprobar una solicitud)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Prestamo {
+  id                String          @id @default(cuid())
+  solicitudId       String          @unique
+  adminId           String?
+
+  // Parámetros aprobados por el prestamista
+  monto_aprobado    Decimal         @db.Decimal(12, 2)
+  tipo_tasa         TipoTasa
+  valor_interes     Decimal         @db.Decimal(10, 4) // porcentaje o monto fijo
+  modalidad_pago    ModalidadPago
+  frecuencia_pago   PeriodicidadPago
+  numero_cuotas     Int
+  fecha_primer_pago DateTime
+
+  // Totales calculados al momento de aprobación
+  total_interes     Decimal         @db.Decimal(12, 2)
+  total_a_pagar     Decimal         @db.Decimal(12, 2)
+  ganancia_estimada Decimal         @db.Decimal(12, 2)
+
+  // Datos de cobro del prestamista (para que el cliente sepa dónde pagar)
+  metodo_cobro          MetodoDesembolso
+  numero_cobro          String
+
+  activo            Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  solicitud   SolicitudPrestamo @relation(fields: [solicitudId], references: [id])
+  cuotas      CronogramaCuota[]
+
+  @@map("prestamos")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: CronogramaCuota
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CronogramaCuota {
+  id                String      @id @default(cuid())
+  prestamoId        String
+  numero_cuota      Int
+  fecha_vencimiento DateTime
+  capital           Decimal     @db.Decimal(12, 2)
+  interes           Decimal     @db.Decimal(12, 2)
+  cuota_total       Decimal     @db.Decimal(12, 2)
+  saldo_restante    Decimal     @db.Decimal(12, 2)
+  mora              Decimal     @default(0) @db.Decimal(12, 2)
+  estado            EstadoCuota @default(PENDIENTE)
+  fecha_pago_real   DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  prestamo  Prestamo       @relation(fields: [prestamoId], references: [id], onDelete: Cascade)
+  vouchers  VoucherPago[]
+
+  @@unique([prestamoId, numero_cuota])
+  @@map("cronograma_cuotas")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: VoucherPago
+// ─────────────────────────────────────────────────────────────────────────────
+
+model VoucherPago {
+  id               String    @id @default(cuid())
+  cuotaId          String
+  url              String
+  nombre_archivo   String
+  mime_type        String
+  tamano_bytes     Int
+  monto_declarado  Decimal   @db.Decimal(12, 2)
+  aprobado         Boolean?  // null = pendiente revisión, true = aprobado, false = rechazado
+  notas_admin      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  cuota   CronogramaCuota @relation(fields: [cuotaId], references: [id], onDelete: Cascade)
+
+  @@map("vouchers_pago")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODELO: ConfiguracionFinanciera (Singleton para tasas y parámetros)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ConfiguracionFinanciera {
+  id                        String   @id @default("default_config")
+  tasaDiaria                Float    @default(20.0)
+  tasaSemanal               Float    @default(20.0)
+  tasaQuincenal             Float    @default(15.0)
+  tasaMensual               Float    @default(10.0)
+  tasaTrimestral            Float    @default(15.0)
+  tasaSemestral             Float    @default(25.0)
+  cuotasDefaultDiario       Int      @default(24)
+  cuotasDefaultSemanal      Int      @default(4)
+  cuotasDefaultQuincenal    Int      @default(2)
+  cuotasDefaultMensual      Int      @default(1)
+  cuotasDefaultTrimestral   Int      @default(1)
+  cuotasDefaultSemestral    Int      @default(1)
+  montoMinimo               Float    @default(50.0)
+  montoMaximo               Float    @default(10000.0)
+  tasaMoraDiaria            Float    @default(1.5)
+  updatedAt                 DateTime @updatedAt
+
+  @@map("configuracion_financiera")
+}
+
