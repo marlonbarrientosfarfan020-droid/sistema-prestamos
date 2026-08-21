@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { paso1Schema, paso2Schema, paso5Schema, serverFileSchema } from "@/lib/validations/solicitud";
-import path from "path";
-import fs from "fs/promises";
+import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+// Inicializar cliente de Supabase Storage
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Tipos de documento KYC esperados en el FormData
 const DOC_FIELDS = [
@@ -26,32 +32,6 @@ const DOC_KYC_MAP: Record<typeof DOC_FIELDS[number], string> = {
   selfieConDni: "SELFIE_CON_DNI",
   sustentoLaboral: "SUSTENTO_LABORAL",
 };
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_MIMES = ["image/jpeg", "image/png", "application/pdf"];
-
-// Asegurar que el directorio de uploads existe
-async function ensureUploadDir(dni: string): Promise<string> {
-  const uploadBase = process.env.UPLOAD_DIR ?? "public/uploads";
-  const dir = path.join(/*turbopackIgnore: true*/ process.cwd(), uploadBase, dni);
-  await fs.mkdir(dir, { recursive: true });
-  return dir;
-}
-
-// Guardar un archivo en disco
-async function saveFile(file: File, dir: string): Promise<{ relativePath: string; filename: string }> {
-  const ext = file.name.split(".").pop() ?? "bin";
-  const filename = `${uuidv4()}.${ext}`;
-  const filepath = path.join(/*turbopackIgnore: true*/ dir, filename);
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(filepath, buffer);
-  // Retornar path relativo para servir desde /uploads
-  const dniFolder = path.basename(dir);
-  return {
-    relativePath: `/uploads/${dniFolder}/${filename}`,
-    filename: file.name,
-  };
-}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -123,10 +103,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // ─── Procesar archivos ────────────────────────────────────────────────────
+    // ─── Procesar archivos y subirlos a Supabase Storage ───────────────────────
 
     const { dni } = paso1Result.data;
-    const uploadDir = await ensureUploadDir(dni);
 
     const archivosGuardados: {
       tipo: string;
@@ -192,11 +171,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
 
-      const { relativePath, filename } = await saveFile(archivo, uploadDir);
+      // Convertir archivo a Buffer y subir a Supabase Storage bucket 'documentos'
+      const buffer = Buffer.from(await archivo.arrayBuffer());
+      const fileExt = archivo.name.split(".").pop() || "bin";
+      const fileName = `${dni}/${uuidv4()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("documentos")
+        .upload(fileName, buffer, {
+          contentType: archivo.type || "application/octet-stream",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error(`[Supabase Storage] Error al subir ${label}:`, uploadError);
+        return NextResponse.json(
+          { success: false, error: `Error al subir el archivo ${label}: ${uploadError.message}` },
+          { status: 500 }
+        );
+      }
+
+      // Obtener URL pública desde Supabase Storage
+      const { data: publicData } = supabase.storage
+        .from("documentos")
+        .getPublicUrl(fileName);
+
       archivosGuardados.push({
         tipo: DOC_KYC_MAP[campo],
-        url: relativePath,
-        nombreArchivo: filename,
+        url: publicData.publicUrl,
+        nombreArchivo: archivo.name,
         mimeType: archivo.type || "application/octet-stream",
         tamanoBytes: archivo.size,
       });
