@@ -5,6 +5,8 @@ import { paso1Schema, paso2Schema, paso5Schema, serverFileSchema } from "@/lib/v
 import path from "path";
 import fs from "fs/promises";
 import { v4 as uuidv4 } from "uuid";
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 // Tipos de documento KYC esperados en el FormData
 const DOC_FIELDS = [
