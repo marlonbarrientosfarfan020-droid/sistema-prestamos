@@ -21,6 +21,8 @@ const configuracionSchema = z
     montoMinimo: z.number().positive("El monto mínimo debe ser mayor a 0"),
     montoMaximo: z.number().positive("El monto máximo debe ser mayor a 0"),
     tasaMoraDiaria: z.number().min(0, "La mora diaria no puede ser negativa"),
+    whatsappNumero: z.string().optional().nullable(),
+    whatsappMensaje: z.string().optional().nullable(),
   })
   .refine((data) => data.montoMaximo >= data.montoMinimo, {
     message: "El monto máximo debe ser mayor o igual al monto mínimo",
@@ -58,12 +60,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         montoMinimo: 50.0,
         montoMaximo: 10000.0,
         tasaMoraDiaria: 1.5,
+        whatsappNumero: "51987654321",
+        whatsappMensaje: "Hola, deseo solicitar información sobre los préstamos.",
       },
     });
 
     return NextResponse.json({
       success: true,
-      data: config,
+      data: {
+        ...config,
+        whatsappNumero: config.whatsappNumero || "51987654321",
+        whatsappMensaje: config.whatsappMensaje || "Hola, deseo solicitar información sobre los préstamos.",
+      },
     });
   } catch (error) {
     console.error("[API /api/admin/configuracion GET] Error:", error);

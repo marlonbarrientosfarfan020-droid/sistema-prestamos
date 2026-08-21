@@ -94,9 +94,12 @@ async function runHealthCheck() {
         montoMinimo: 50.0,
         montoMaximo: 10000.0,
         tasaMoraDiaria: 1.5,
+        whatsappNumero: "51987654321",
+        whatsappMensaje: "Hola, deseo solicitar información sobre los préstamos.",
       },
     });
-    console.log(`   ✅ Configuración OK: Tasa Mensual = ${config.tasaMensual}%, Mora Diaria = ${config.tasaMoraDiaria}%, Rango = S/ ${config.montoMinimo} - S/ ${config.montoMaximo}`);
+    console.log(`   ✅ Configuración OK: Tasa Mensual = ${config.tasaMensual}%, Mora = ${config.tasaMoraDiaria}%, Rango = S/ ${config.montoMinimo} - S/ ${config.montoMaximo}`);
+    console.log(`   📱 WhatsApp Atención : +${config.whatsappNumero || '51987654321'} ("${config.whatsappMensaje || ''}")`);
 
     // 4. Comprobar usuario administrador
     console.log('\n4️⃣  Verificando existencia de usuario administrador...');

@@ -26,12 +26,18 @@ export async function GET(): Promise<NextResponse> {
         montoMinimo: 50.0,
         montoMaximo: 10000.0,
         tasaMoraDiaria: 1.5,
+        whatsappNumero: "51987654321",
+        whatsappMensaje: "Hola, deseo solicitar información sobre los préstamos.",
       },
     });
 
     return NextResponse.json({
       success: true,
-      data: config,
+      data: {
+        ...config,
+        whatsappNumero: config.whatsappNumero || "51987654321",
+        whatsappMensaje: config.whatsappMensaje || "Hola, deseo solicitar información sobre los préstamos.",
+      },
     });
   } catch (error) {
     console.error("[API /api/configuracion] Error:", error);
@@ -56,6 +62,8 @@ export async function GET(): Promise<NextResponse> {
           montoMinimo: 50.0,
           montoMaximo: 10000.0,
           tasaMoraDiaria: 1.5,
+          whatsappNumero: "51987654321",
+          whatsappMensaje: "Hola, deseo solicitar información sobre los préstamos.",
         },
       },
       { status: 500 }

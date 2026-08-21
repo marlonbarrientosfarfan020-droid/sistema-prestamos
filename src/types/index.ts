@@ -287,3 +287,27 @@ export interface Distrito {
   nombre: string;
   provinciaId: string;
 }
+
+// ─── Configuración Financiera y Parámetros del Sistema ──────────────────────
+
+export interface ConfiguracionFinancieraData {
+  id: string;
+  tasaDiaria: number;
+  tasaSemanal: number;
+  tasaQuincenal: number;
+  tasaMensual: number;
+  tasaTrimestral: number;
+  tasaSemestral: number;
+  cuotasDefaultDiario: number;
+  cuotasDefaultSemanal: number;
+  cuotasDefaultQuincenal: number;
+  cuotasDefaultMensual: number;
+  cuotasDefaultTrimestral: number;
+  cuotasDefaultSemestral: number;
+  montoMinimo: number;
+  montoMaximo: number;
+  tasaMoraDiaria: number;
+  whatsappNumero?: string | null;
+  whatsappMensaje?: string | null;
+}
+

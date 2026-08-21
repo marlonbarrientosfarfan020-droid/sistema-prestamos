@@ -27,10 +27,7 @@ import {
 import { formatPEN, LABELS_PERIODICIDAD } from "@/lib/utils/formatters";
 import type { PeriodicidadPago } from "@/types";
 
-// ─── CONSTANTES ──────────────────────────────────────────────────────────────
-
-const WHATSAPP_NUMERO = "51987654321";
-const WHATSAPP_MENSAJE = encodeURIComponent("¡Hola! Deseo información sobre cómo solicitar un préstamo personal.");
+// ─── BENEFICIOS Y CARACTERÍSTICAS ──────────────────────────────────────────
 
 const BENEFICIOS = [
   {
@@ -125,6 +122,8 @@ interface ConfiguracionFinanciera {
   cuotasDefaultSemestral: number;
   montoMinimo: number;
   montoMaximo: number;
+  whatsappNumero?: string;
+  whatsappMensaje?: string;
 }
 
 const DEFAULT_CONFIG: ConfiguracionFinanciera = {
@@ -142,6 +141,8 @@ const DEFAULT_CONFIG: ConfiguracionFinanciera = {
   cuotasDefaultSemestral: 1,
   montoMinimo: 100,
   montoMaximo: 15000,
+  whatsappNumero: "51987654321",
+  whatsappMensaje: "¡Hola! Deseo información sobre cómo solicitar un préstamo personal.",
 };
 
 // ─── COMPONENTE: TARJETA CON EFECTO TILT 3D ──────────────────────────────────
@@ -333,6 +334,10 @@ export default function HomePage() {
   const totalAPagar = monto + interesTotal;
   const cuotaEstimada = Math.round((totalAPagar / (cuotas || 1)) * 100) / 100;
 
+  const cleanWhatsAppNumero = (config.whatsappNumero || "51987654321").replace(/\D/g, "");
+  const cleanWhatsAppMensaje = encodeURIComponent(config.whatsappMensaje || "¡Hola! Deseo información sobre cómo solicitar un préstamo personal.");
+  const whatsappUrl = `https://wa.me/${cleanWhatsAppNumero}?text=${cleanWhatsAppMensaje}`;
+
   const handleBuscarDNI = (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{8}$/.test(dniConsulta)) {
@@ -445,7 +450,7 @@ export default function HomePage() {
             {/* Acciones Móvil */}
             <div className="flex lg:hidden items-center gap-2">
               <a
-                href={`https://wa.me/${WHATSAPP_NUMERO}?text=${WHATSAPP_MENSAJE}`}
+                href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 rounded-xl hover:bg-emerald-900/80 transition"
@@ -985,7 +990,14 @@ export default function HomePage() {
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                <span>WhatsApp: +51 987 654 321</span>
+                <a
+                  href={`https://wa.me/${(config.whatsappNumero || "51987654321").replace(/\D/g, "")}?text=${encodeURIComponent(config.whatsappMensaje || "¡Hola! Deseo información sobre cómo solicitar un préstamo personal.")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-emerald-400 transition-colors"
+                >
+                  WhatsApp: +{config.whatsappNumero || "51 987 654 321"}
+                </a>
               </li>
             </ul>
           </div>
@@ -1015,9 +1027,9 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {/* ─── 8. BOTÓN FLOTANTE DE WHATSAPP RESPONSIVO ─── */}
+      {/* ─── 8. BOTÓN FLOTANTE DE WHATSAPP RESPONSIVO Y DINÁMICO ─── */}
       <a
-        href={`https://wa.me/${WHATSAPP_NUMERO}?text=${WHATSAPP_MENSAJE}`}
+        href={`https://wa.me/${(config.whatsappNumero || "51987654321").replace(/\D/g, "")}?text=${encodeURIComponent(config.whatsappMensaje || "¡Hola! Deseo información sobre cómo solicitar un préstamo personal.")}`}
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-50 group flex items-center gap-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold p-3.5 sm:px-4 sm:py-3 rounded-full shadow-2xl shadow-emerald-500/30 hover:scale-105 transition-all duration-300"

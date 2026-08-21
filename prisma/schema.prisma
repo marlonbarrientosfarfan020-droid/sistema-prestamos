@@ -339,6 +339,8 @@ model ConfiguracionFinanciera {
   montoMinimo               Float    @default(50.0)
   montoMaximo               Float    @default(10000.0)
   tasaMoraDiaria            Float    @default(1.5)
+  whatsappNumero            String?  @default("51987654321")
+  whatsappMensaje           String?  @default("Hola, deseo solicitar información sobre los préstamos.")
   updatedAt                 DateTime @updatedAt
 
   @@map("configuracion_financiera")

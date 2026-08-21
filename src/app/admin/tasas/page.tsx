@@ -15,6 +15,8 @@ import {
   Clock,
   ShieldCheck,
   Zap,
+  MessageCircle,
+  ExternalLink,
 } from "lucide-react";
 import { formatPEN, LABELS_PERIODICIDAD } from "@/lib/utils/formatters";
 import type { PeriodicidadPago } from "@/types";
@@ -36,6 +38,8 @@ interface ConfiguracionFinanciera {
   montoMinimo: number;
   montoMaximo: number;
   tasaMoraDiaria: number;
+  whatsappNumero?: string | null;
+  whatsappMensaje?: string | null;
 }
 
 export default function TasasInteresPage() {
@@ -56,6 +60,8 @@ export default function TasasInteresPage() {
     montoMinimo: 50.0,
     montoMaximo: 10000.0,
     tasaMoraDiaria: 1.5,
+    whatsappNumero: "51987654321",
+    whatsappMensaje: "Hola, deseo solicitar información sobre los préstamos.",
   });
 
   const [loading, setLoading] = useState(true);
@@ -538,6 +544,70 @@ export default function TasasInteresPage() {
                   />
                   <span className="absolute right-3 text-xs font-bold text-slate-400 pointer-events-none">% diario</span>
                 </div>
+              </div>
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════════════
+                SECCIÓN WHATSAPP & ATENCIÓN AL CLIENTE
+                ═══════════════════════════════════════════════════════════════════ */}
+            <div className="pt-5 border-t border-slate-100 space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <MessageCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Atención por WhatsApp y Botón Flotante</h3>
+                  <p className="text-xs text-slate-500 font-normal">Configura el canal directo de contacto para la landing page y el sitio público.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Número de WhatsApp (con código de país 51)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="51987654321"
+                    value={config.whatsappNumero || ""}
+                    onChange={(e) => setConfig({ ...config, whatsappNumero: e.target.value })}
+                    className="w-full h-11 px-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500"
+                  />
+                  <p className="text-[11px] text-slate-400">Ejemplo: 51987654321 (código Perú + número de 9 dígitos)</p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Mensaje Inicial del Chat
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Hola, deseo solicitar información sobre los préstamos."
+                    value={config.whatsappMensaje || ""}
+                    onChange={(e) => setConfig({ ...config, whatsappMensaje: e.target.value })}
+                    className="w-full h-11 px-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500"
+                  />
+                  <p className="text-[11px] text-slate-400">Texto precargado cuando el cliente abre el chat</p>
+                </div>
+              </div>
+
+              {/* Vista previa interactiva del enlace */}
+              <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-bold text-emerald-900 flex-shrink-0">Enlace en vivo:</span>
+                  <span className="font-mono text-[11px] text-emerald-800 truncate">
+                    {`https://wa.me/${(config.whatsappNumero || "51987654321").replace(/\D/g, "")}?text=${encodeURIComponent(config.whatsappMensaje || "Hola, deseo solicitar información sobre los préstamos.")}`}
+                  </span>
+                </div>
+                <a
+                  href={`https://wa.me/${(config.whatsappNumero || "51987654321").replace(/\D/g, "")}?text=${encodeURIComponent(config.whatsappMensaje || "Hola, deseo solicitar información sobre los préstamos.")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs flex-shrink-0"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Probar Chat en WhatsApp</span>
+                </a>
               </div>
             </div>
 
