@@ -30,33 +30,40 @@ export async function getAuthSession(request?: NextRequest): Promise<AuthSession
       return null;
     }
 
-    // Intentar decodificar el payload de la sesión
+    let userId: string | undefined;
     let userEmail: string | undefined;
 
     try {
       if (sessionCookieValue.startsWith("{")) {
         const parsed = JSON.parse(sessionCookieValue);
+        userId = parsed.id;
         userEmail = parsed.email;
       }
     } catch {
       // Formato simple legacy fallback
     }
 
-    const adminEnvEmail = (process.env.ADMIN_EMAIL || "admin@prestamos.pe").toLowerCase();
+    let dbUser = null;
 
-    // Si no vino email en la cookie, buscar el admin principal
-    if (!userEmail) {
-      userEmail = adminEnvEmail;
+    // 1. Buscar por ID de usuario si está disponible y no es env_admin
+    if (userId && userId !== "env_admin") {
+      dbUser = await prisma.adminUser.findUnique({
+        where: { id: userId },
+      });
     }
 
-    // Consultar el estado real y rol en la base de datos
-    const dbUser = await prisma.adminUser.findUnique({
-      where: { email: userEmail.toLowerCase() },
-    });
+    // 2. Si no se encontró por ID, buscar por correo electrónico
+    if (!dbUser && userEmail) {
+      dbUser = await prisma.adminUser.findUnique({
+        where: { email: userEmail.toLowerCase() },
+      });
+    }
+
+    const adminEnvEmail = (process.env.ADMIN_EMAIL || "admin@prestamos.pe").toLowerCase();
 
     if (!dbUser) {
       // Fallback si coincide con ENV
-      if (userEmail === adminEnvEmail) {
+      if (userEmail === adminEnvEmail || (!userEmail && !userId)) {
         return {
           id: "env_admin",
           email: adminEnvEmail,

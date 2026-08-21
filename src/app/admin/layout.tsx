@@ -49,6 +49,15 @@ export default function AdminLayout({
       }
     }
     loadSessionUser();
+
+    const handleSessionUpdate = () => {
+      loadSessionUser();
+    };
+
+    window.addEventListener('session-updated', handleSessionUpdate);
+    return () => {
+      window.removeEventListener('session-updated', handleSessionUpdate);
+    };
   }, []);
 
   // No mostrar layout en la pantalla de login

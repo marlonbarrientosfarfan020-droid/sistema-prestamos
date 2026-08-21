@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   User,
   Mail,
@@ -22,11 +23,15 @@ import {
 import type { Role } from "@/types";
 
 export default function ConfiguracionAdminPage() {
-  // ─── ESTADOS DE PERFIL ───
+  const router = useRouter();
+
+  // ─── ESTADOS DE PERFIL (Carga Dinámica desde Sesión Activa) ───
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
-  const [userRole, setUserRole] = useState<Role>("ADMIN");
+  const [userRole, setUserRole] = useState<Role | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+
+  // Estados de Envío y Feedback
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -44,44 +49,53 @@ export default function ConfiguracionAdminPage() {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  // ─── CARGA INICIAL DE DATOS ───
+  // ─── CARGA INICIAL DE DATOS DINÁMICOS DESDE LA SESIÓN ACTIVA ───
   useEffect(() => {
-    async function loadData() {
+    async function loadSessionProfile() {
       try {
         setInitialLoading(true);
+        setProfileError(null);
+
         const resProfile = await fetch("/api/admin/perfil");
         const jsonProfile = await resProfile.json();
-        if (jsonProfile.success && jsonProfile.data) {
-          setNombre(jsonProfile.data.nombre || "");
-          setEmail(jsonProfile.data.email || "");
+
+        if (!resProfile.ok || !jsonProfile.success) {
+          throw new Error(jsonProfile.error || "No se pudo cargar la información de la sesión.");
         }
 
-        const resMe = await fetch("/api/admin/auth/me");
-        const jsonMe = await resMe.json();
-        if (jsonMe.success && jsonMe.data) {
-          setUserRole(jsonMe.data.role || "ADMIN");
+        if (jsonProfile.data) {
+          setNombre(jsonProfile.data.nombre || "");
+          setEmail(jsonProfile.data.email || "");
+          setUserRole(jsonProfile.data.role || "ADMIN");
         }
-      } catch (err) {
-        console.error("Error al cargar datos administrativos:", err);
+      } catch (err: unknown) {
+        console.error("[Configuración] Error al cargar perfil:", err);
+        setProfileError(
+          err instanceof Error ? err.message : "Error al conectar con el servidor."
+        );
       } finally {
         setInitialLoading(false);
       }
     }
-    loadData();
+
+    loadSessionProfile();
   }, []);
 
-  // ─── GUARDAR PERFIL (NOMBRE & EMAIL) ───
+  // ─── MANEJO DEL ENVÍO DE ACTUALIZACIÓN DE PERFIL (PUT /api/admin/perfil) ───
   const handleProfileSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setProfileError(null);
     setProfileSuccess(null);
 
-    if (!nombre.trim() || nombre.trim().length < 3) {
+    const cleanNombre = nombre.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanNombre || cleanNombre.length < 3) {
       setProfileError("El nombre completo debe tener al menos 3 caracteres.");
       return;
     }
 
-    if (!email.trim() || !email.includes("@") || !email.includes(".")) {
+    if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
       setProfileError("Por favor ingresa un correo electrónico válido.");
       return;
     }
@@ -90,30 +104,38 @@ export default function ConfiguracionAdminPage() {
 
     try {
       const res = await fetch("/api/admin/perfil", {
-        method: "PATCH",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nombre: nombre.trim(),
-          email: email.trim(),
+          nombre: cleanNombre,
+          email: cleanEmail,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "No se pudieron guardar los cambios.");
+        throw new Error(data.error || "No se pudo actualizar el perfil.");
       }
 
-      setProfileSuccess(data.message || "Perfil administrativo actualizado con éxito.");
-      setTimeout(() => setProfileSuccess(null), 5000);
+      // Notificación de éxito
+      setProfileSuccess(data.message || "Perfil actualizado correctamente.");
+
+      // Disparar evento para refrescar inmediatamente el sidebar y header sin recargar
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("session-updated"));
+      }
+      router.refresh();
+
+      setTimeout(() => setProfileSuccess(null), 6000);
     } catch (err: unknown) {
-      setProfileError(err instanceof Error ? err.message : "Error de conexión al actualizar el perfil.");
+      setProfileError(err instanceof Error ? err.message : "Error al actualizar el perfil.");
     } finally {
       setProfileLoading(false);
     }
   };
 
-  // ─── ACTUALIZAR CONTRASEÑA ───
+  // ─── ACTUALIZACIÓN DE CONTRASEÑA ───
   const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setPasswordError(null);
@@ -162,9 +184,11 @@ export default function ConfiguracionAdminPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setTimeout(() => setPasswordSuccess(null), 5000);
+      setTimeout(() => setPasswordSuccess(null), 6000);
     } catch (err: unknown) {
-      setPasswordError(err instanceof Error ? err.message : "Error al procesar la solicitud de cambio de clave.");
+      setPasswordError(
+        err instanceof Error ? err.message : "Error al procesar el cambio de clave."
+      );
     } finally {
       setPasswordLoading(false);
     }
@@ -190,16 +214,20 @@ export default function ConfiguracionAdminPage() {
           </p>
         </div>
 
-        {/* Badge de Rol */}
-        {userRole === "SUPER_ADMIN" ? (
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-extrabold shadow-2xs">
-            <Sparkles className="w-4 h-4 text-purple-600" />
-            <span>SUPER_ADMIN • Control Total</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>OPERADOR (ADMIN)</span>
+        {/* Badge Dinámico de Rol */}
+        {!initialLoading && userRole && (
+          <div>
+            {userRole === "SUPER_ADMIN" ? (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-extrabold shadow-2xs">
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                <span>SUPER_ADMIN • Control Total</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>OPERADOR (ADMIN)</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -273,7 +301,7 @@ export default function ConfiguracionAdminPage() {
       {/* ─── GRID DE FORMULARIOS: PERFIL Y CONTRASEÑA ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-start">
         {/* ═══════════════════════════════════════════════════════════════════════
-            TARJETA 1: DATOS DEL PERFIL
+            TARJETA 1: DATOS DEL PERFIL (NOMBRE Y CORREO)
             ═══════════════════════════════════════════════════════════════════════ */}
         <div className="card p-5 sm:p-7 bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-start gap-3.5 pb-5 border-b border-slate-100">
@@ -285,34 +313,45 @@ export default function ConfiguracionAdminPage() {
                 Datos del Perfil
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Nombre y correo identificatorio de tu cuenta.
+                Información identificatoria de tu cuenta activa en el sistema.
               </p>
             </div>
           </div>
 
+          {/* Notificación de Éxito */}
           {profileSuccess && (
-            <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
+            <div
+              className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200"
+              role="alert"
+            >
               <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-              <span>{profileSuccess}</span>
+              <span className="font-semibold">{profileSuccess}</span>
             </div>
           )}
 
+          {/* Notificación de Error */}
           {profileError && (
-            <div className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
+            <div
+              className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200"
+              role="alert"
+            >
               <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-              <span>{profileError}</span>
+              <span className="font-semibold">{profileError}</span>
             </div>
           )}
 
           {initialLoading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
               <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
-              <span className="text-xs">Cargando perfil...</span>
+              <span className="text-xs font-medium">Cargando datos de la sesión activa...</span>
             </div>
           ) : (
             <form onSubmit={handleProfileSubmit} className="mt-5 space-y-4">
               <div className="space-y-1.5">
-                <label htmlFor="perfil-nombre" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                <label
+                  htmlFor="perfil-nombre"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-600"
+                >
                   Nombre Completo
                 </label>
                 <div className="relative flex items-center">
@@ -322,16 +361,20 @@ export default function ConfiguracionAdminPage() {
                   <input
                     id="perfil-nombre"
                     type="text"
+                    placeholder="Tu nombre completo"
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
                     required
-                    className="w-full h-11 pl-10 pr-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+                    className="w-full h-11 pl-10 pr-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="perfil-email" className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                <label
+                  htmlFor="perfil-email"
+                  className="block text-xs font-bold uppercase tracking-wider text-slate-600"
+                >
                   Correo Electrónico
                 </label>
                 <div className="relative flex items-center">
@@ -341,10 +384,11 @@ export default function ConfiguracionAdminPage() {
                   <input
                     id="perfil-email"
                     type="email"
+                    placeholder="correo@prestamos.pe"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full h-11 pl-10 pr-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+                    className="w-full h-11 pl-10 pr-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition"
                   />
                 </div>
               </div>
@@ -359,7 +403,7 @@ export default function ConfiguracionAdminPage() {
                   {profileLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Guardando...</span>
+                      <span>Actualizando perfil...</span>
                     </>
                   ) : (
                     <>
@@ -386,22 +430,28 @@ export default function ConfiguracionAdminPage() {
                 Seguridad de Contraseña
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Actualiza tu clave de acceso periódico.
+                Actualiza tu clave de acceso periódico para mayor seguridad.
               </p>
             </div>
           </div>
 
           {passwordSuccess && (
-            <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
+            <div
+              className="mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200"
+              role="alert"
+            >
               <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-              <span>{passwordSuccess}</span>
+              <span className="font-semibold">{passwordSuccess}</span>
             </div>
           )}
 
           {passwordError && (
-            <div className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200" role="alert">
+            <div
+              className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200"
+              role="alert"
+            >
               <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-              <span>{passwordError}</span>
+              <span className="font-semibold">{passwordError}</span>
             </div>
           )}
 
@@ -485,7 +535,7 @@ export default function ConfiguracionAdminPage() {
                 {passwordLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Actualizando...</span>
+                    <span>Actualizando contraseña...</span>
                   </>
                 ) : (
                   <>
